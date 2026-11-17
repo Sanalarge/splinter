@@ -52,6 +52,12 @@ def prepare():
     print(json.dumps(values))
 
 
+def find_release(repository, tag):
+    result = run("gh", "api", f"repos/{repository}/releases?per_page=100", "--paginate", "--jq",
+                 f'.[] | select(.tag_name == "{tag}")')
+    return json.loads(result) if result else None
+
+
 def publish(directory):
     values = version_for(ROOT)
     repository = os.environ["GITHUB_REPOSITORY"]
@@ -60,10 +66,9 @@ def publish(directory):
     if values["commit"] != os.environ["GITHUB_SHA"]:
         raise ValueError("Release checkout does not match the triggering commit")
     tag = values["tag"]
-    existing = subprocess.run(["gh", "api", f"repos/{repository}/releases/tags/{tag}"], text=True, capture_output=True)
-    release = json.loads(existing.stdout) if existing.returncode == 0 else None
-    if existing.returncode != 0 and "404" not in existing.stderr:
-        raise RuntimeError("Cannot check whether this release already exists")
+    release = find_release(repository, tag)
+    if release and release["target_commitish"] != values["commit"]:
+        raise ValueError("Existing release targets a different commit")
     if release and not release["draft"]:
         print(f"{tag} is already published; leaving it unchanged")
         return
@@ -99,8 +104,10 @@ def publish(directory):
             subprocess.run(["gh", "release", "create", tag, "--repo", repository, "--target", values["commit"],
                             "--draft", "--title", f"Splinter {values['version']}", "--notes-file", str(note_file)], check=True)
         subprocess.run(["gh", "release", "upload", tag, "--repo", repository, "--clobber", *map(str, assets)], check=True)
-    release_id = run("gh", "api", f"repos/{repository}/releases/tags/{tag}", "--jq", ".id")
-    subprocess.run(["gh", "api", "--method", "PATCH", f"repos/{repository}/releases/{release_id}",
+    release = find_release(repository, tag)
+    if not release or not release["draft"]:
+        raise RuntimeError("Cannot find the uploaded draft release")
+    subprocess.run(["gh", "api", "--method", "PATCH", f"repos/{repository}/releases/{release['id']}",
                     "-F", "draft=false", "-f", "make_latest=legacy"], check=True, stdout=subprocess.DEVNULL)
     print(f"Published https://github.com/{repository}/releases/tag/{tag}")
 

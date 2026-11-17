@@ -101,18 +101,21 @@ class ReleaseVersionTests(unittest.TestCase):
             (assets / "Splinter-1.2.0-universal.zip").write_bytes(b"package")
             (assets / "SHA256SUMS").write_text("checksum")
         calls = []
+        commit = self.git("rev-parse", "HEAD")
+        current = {"id": 42, "draft": True, "target_commitish": commit, "tag_name": "v1.2.0", **existing} if existing else None
         original = subprocess.run
 
         def command(args, **kwargs):
+            nonlocal current
             if args[0] != "gh":
                 return original(args, **kwargs)
             calls.append(args)
-            if "--jq" in args:
-                return subprocess.CompletedProcess(args, 0, stdout="42\n", stderr="")
             if "api" in args and "--method" not in args:
-                return subprocess.CompletedProcess(args, 0 if existing else 1,
-                                                   stdout=json.dumps(existing) if existing else "",
-                                                   stderr="" if existing else "HTTP 404")
+                self.assertIn("/releases?per_page=100", args[2])
+                self.assertIn("--paginate", args)
+                return subprocess.CompletedProcess(args, 0, stdout=json.dumps(current) if current else "", stderr="")
+            if args[1:3] == ["release", "create"]:
+                current = {"id": 42, "draft": True, "target_commitish": commit, "tag_name": "v1.2.0"}
             return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
 
         environment = {"GITHUB_REPOSITORY": "owner/project", "GITHUB_REF": "refs/heads/main",
@@ -143,6 +146,10 @@ class ReleaseVersionTests(unittest.TestCase):
     def test_missing_asset_does_not_create_release(self):
         with self.assertRaisesRegex(ValueError, "Missing release asset"):
             self.publish_fixture(missing=True)
+
+    def test_draft_for_another_commit_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "different commit"):
+            self.publish_fixture(existing={"draft": True, "target_commitish": "0" * 40})
 
     def test_other_branches_cannot_publish(self):
         with patch.object(release, "ROOT", self.root), patch.dict(os.environ, {
