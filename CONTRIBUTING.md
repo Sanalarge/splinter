@@ -8,6 +8,20 @@ Use concise English commit subjects. Repository access is not required to contri
 merges changes. Do not include credentials, signing material, generated binaries,
 personal event logs or local editor configuration.
 
+## Compatibility
+
+Standard button events and discrete wheel tilt work across mouse brands.
+Vendor-specific controls that emit no standard event need manufacturer support;
+continuous trackpad gestures pass through. Device selection matches vendor,
+product and model name, so identical models share the same selection.
+
+Ctrl+arrow receiver compatibility is opt-in. It accepts a matching mouse or the
+keyboard interface of its physical USB receiver. A real keyboard sharing that
+receiver can also have its Ctrl+arrow shortcuts remapped.
+
+Input stays local. Diagnostic logs remain in memory unless explicitly copied;
+review shortcut and device names before sharing them.
+
 ## Development
 
 Use macOS 14 or later, Xcode Command Line Tools with Swift 5.9 or later, and Python 3.
@@ -77,3 +91,6 @@ checks, with no bypass;
 the sole maintainer merges PRs without needing a second account to approve them.
 Release tags cannot be updated or deleted. External fork workflows require
 maintainer approval before running.
+
+Swift analysis runs for Swift changes, scheduled scans and manual runs. Updates
+without Swift changes skip compilation and analysis while retaining the required check.

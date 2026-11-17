@@ -28,17 +28,32 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          fetch-depth: 0
           persist-credentials: false
+      - name: Check Swift changes
+        id: changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" || "$GITHUB_EVENT_NAME" == "push" ]] && [[ -n "$BASE_SHA" ]] && git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null && git diff --quiet "$BASE_SHA...$HEAD_SHA" -- '*.swift'; then
+            echo 'scan=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'scan=true' >> "$GITHUB_OUTPUT"
+          fi
       - uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066
+        if: steps.changes.outputs.scan == 'true'
         with:
           languages: swift
           build-mode: manual
       - name: Compile Swift for analysis
+        if: steps.changes.outputs.scan == 'true'
         run: |
           mkdir -p build
           swiftc -parse-as-library -swift-version 5 -Onone -warnings-as-errors \
             -module-cache-path "$RUNNER_TEMP/swift-module-cache" \
             -target "$(uname -m)-apple-macos14.0" Sources/*.swift -o build/Splinter
       - uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066
+        if: steps.changes.outputs.scan == 'true'
         with:
           category: /language:swift
