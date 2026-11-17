@@ -1,4 +1,5 @@
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
@@ -116,7 +117,7 @@ class ReleaseVersionTests(unittest.TestCase):
 
         environment = {"GITHUB_REPOSITORY": "owner/project", "GITHUB_REF": "refs/heads/main",
                        "GITHUB_EVENT_NAME": "push", "GITHUB_SHA": self.git("rev-parse", "HEAD")}
-        with patch.object(release, "ROOT", self.root), patch.dict(os.environ, environment), patch.object(subprocess, "run", side_effect=command):
+        with patch.object(release, "ROOT", self.root), patch.dict(os.environ, environment), patch.object(subprocess, "run", side_effect=command), patch("sys.stdout", new_callable=io.StringIO):
             release.publish(assets)
         return calls
 

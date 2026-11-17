@@ -34,6 +34,7 @@ def configure(repository):
         },
     })
     api(f"{endpoint}/vulnerability-alerts", "PUT")
+    api(f"{endpoint}/automated-security-fixes", "PUT")
     api(f"{endpoint}/private-vulnerability-reporting", "PUT")
     api(f"{endpoint}/actions/permissions", "PUT", {"enabled": True, "allowed_actions": "selected"})
     api(f"{endpoint}/actions/permissions/selected-actions", "PUT", {
@@ -60,7 +61,10 @@ def configure(repository):
             }},
             {"type": "required_status_checks", "parameters": {
                 "strict_required_status_checks_policy": True,
-                "required_status_checks": [{"context": "Test and build", "integration_id": 15368}],
+                "required_status_checks": [
+                    {"context": "Test and build", "integration_id": 15368},
+                    {"context": "Analyze Swift", "integration_id": 15368},
+                ],
             }},
         ],
     }
@@ -69,7 +73,13 @@ def configure(repository):
         "conditions": {"ref_name": {"include": ["refs/tags/v*"], "exclude": []}},
         "rules": [{"type": "deletion"}, {"type": "update"}],
     }
-    for policy in [main, tags]:
+    maintainers = {
+        "name": "Maintainer-only main updates", "target": "branch", "enforcement": "active",
+        "bypass_actors": [{"actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always"}],
+        "conditions": {"ref_name": {"include": ["refs/heads/main"], "exclude": []}},
+        "rules": [{"type": "update"}],
+    }
+    for policy in [main, tags, maintainers]:
         existing = next((item for item in rulesets if item["name"] == policy["name"]), None)
         path = f"{endpoint}/rulesets" + (f"/{existing['id']}" if existing else "")
         api(path, "PUT" if existing else "POST", policy)

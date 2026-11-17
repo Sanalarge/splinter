@@ -13,6 +13,8 @@ trigger/action combinations. A temporary source copy redirects outgoing events,
 Mission Control requests, foreground-app lookup and device fixtures. Preferences
 stay in memory; no input is sent to other applications. Replacement boundaries
 are asserted by the runner, and production-source hashes are printed.
+Hold sequences use controlled monotonic input times so shared CI scheduling
+cannot split one simulated burst. Timer callbacks still use the native run loop.
 
 Optional checks:
 
