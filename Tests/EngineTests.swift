@@ -32,6 +32,8 @@ final class TestPermissions {
 }
 
 enum TestIO {
+    static var inputTime: TimeInterval?
+    static var flashTime: TimeInterval?
     private static var frontFixture = "test.browser"
     static var nativeFront = false
     static var front: String {
@@ -59,6 +61,11 @@ func expect(_ condition: @autoclosure () -> Bool, _ message: String) throws {
 }
 func pump(_ seconds: Double) {
     RunLoop.main.run(until: Date().addingTimeInterval(seconds))
+}
+func inputTimeline(_ body: () throws -> Void) rethrows {
+    TestIO.inputTime = ProcessInfo.processInfo.systemUptime - 1
+    defer { TestIO.inputTime = nil }
+    try body()
 }
 func event(_ type: CGEventType, code: Int64 = 123, flags: CGEventFlags = .maskControl,
            button: Int64 = 2, horizontal: Int64 = 1, vertical: Int64 = 0, continuous: Bool = false) -> CGEvent {
@@ -95,6 +102,8 @@ func keyDowns() -> [Int64] {
 
     static func reset() {
         pump(0.06)
+        TestIO.inputTime = nil
+        TestIO.flashTime = nil
         Store.shared = Store(preferences: TestPreferences(), migrateLegacy: false)
         store.config = Config()
         store.config.tiltGap = 0.08
@@ -357,23 +366,27 @@ func keyDowns() -> [Int64] {
             try expect(TestIO.events.isEmpty, "Passthrough generated duplicate")
         }
         test("Tilt hold releases accumulated scroll and scales subsequent events") { engine in
-            for _ in 0..<5 {
-                _ = engine.handle(.scrollWheel, event(.scrollWheel, horizontal: 2))
-                pump(0.035)
+            try inputTimeline {
+                for _ in 0..<5 {
+                    _ = engine.handle(.scrollWheel, event(.scrollWheel, horizontal: 2))
+                    TestIO.inputTime! += 0.035
+                }
+                let e = event(.scrollWheel, horizontal: 2)
+                e.setIntegerValueField(.scrollWheelEventPointDeltaAxis2, value: 10)
+                e.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2, value: 2)
+                try expect(engine.handle(.scrollWheel, e) != nil, "Held scroll suppressed")
+                try expect(e.getIntegerValueField(.scrollWheelEventDeltaAxis2) == 4 && e.getIntegerValueField(.scrollWheelEventPointDeltaAxis2) == 20 && e.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2) == 4, "Scroll fields: lines=\(e.getIntegerValueField(.scrollWheelEventDeltaAxis2)) points=\(e.getIntegerValueField(.scrollWheelEventPointDeltaAxis2)) fixed=\(e.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2))")
             }
-            let e = event(.scrollWheel, horizontal: 2)
-            e.setIntegerValueField(.scrollWheelEventPointDeltaAxis2, value: 10)
-            e.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2, value: 2)
-            try expect(engine.handle(.scrollWheel, e) != nil, "Held scroll suppressed")
-            try expect(e.getIntegerValueField(.scrollWheelEventDeltaAxis2) == 4 && e.getIntegerValueField(.scrollWheelEventPointDeltaAxis2) == 20 && e.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2) == 4, "Scroll fields: lines=\(e.getIntegerValueField(.scrollWheelEventDeltaAxis2)) points=\(e.getIntegerValueField(.scrollWheelEventPointDeltaAxis2)) fixed=\(e.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2))")
             pump(0.12)
             try expect(keyDowns().isEmpty && TestIO.events.count == 1, "Hold also generated tap or duplicate flush")
         }
         test("Tilt hold action fires only once per burst") { engine in
             store.setAction(.copy, for: .tiltLeftHold)
-            for _ in 0..<8 {
-                try expect(engine.handle(.scrollWheel, event(.scrollWheel)) == nil, "Mapped hold leaked")
-                pump(0.035)
+            try inputTimeline {
+                for _ in 0..<8 {
+                    try expect(engine.handle(.scrollWheel, event(.scrollWheel)) == nil, "Mapped hold leaked")
+                    TestIO.inputTime! += 0.035
+                }
             }
             pump(0.12)
             try expect(keyDowns() == [8], "Hold did not fire exactly once")
@@ -454,12 +467,18 @@ func keyDowns() -> [Int64] {
             try expect(store.log.isEmpty, "Queued entry appeared after Clear")
         }
         test("Repeated flashes clear after last event") { _ in
+            TestIO.flashTime = 0
+            defer { TestIO.flashTime = nil }
             store.flash("wheel")
             pump(0.02)
+            TestIO.flashTime = 0.3
             store.flash("wheel")
-            pump(0.32)
+            pump(0.02)
+            TestIO.flashTime = 0.4
+            pump(0.4)
             try expect(store.active.contains("wheel"), "Flash ended before last event deadline")
-            pump(0.06)
+            TestIO.flashTime = 0.7
+            pump(0.3)
             try expect(!store.active.contains("wheel"), "Flash stuck")
         }
         test("Decoded settings reject values that crash scroll scaling") { _ in
@@ -923,9 +942,11 @@ func keyDowns() -> [Int64] {
                     TestIO.missions = []
                     if trigger.isTilt {
                         if trigger == .tiltLeftHold || trigger == .tiltRightHold {
-                            for _ in 0..<6 {
-                                _ = engine.handle(.scrollWheel, event(.scrollWheel, horizontal: trigger.direction))
-                                pump(0.035)
+                            inputTimeline {
+                                for _ in 0..<6 {
+                                    _ = engine.handle(.scrollWheel, event(.scrollWheel, horizontal: trigger.direction))
+                                    TestIO.inputTime! += 0.035
+                                }
                             }
                         } else {
                             _ = engine.handle(.scrollWheel, event(.scrollWheel, horizontal: trigger.direction))

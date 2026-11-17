@@ -50,6 +50,7 @@ else
     -target "$(uname -m)-apple-macos14.0" Sources/*.swift -o "$APP/Contents/MacOS/Splinter"
 fi
 cp Info.plist "$APP/Contents/"
+cp LICENSE "$APP/Contents/Resources/LICENSE.txt"
 if [[ -f AppIcon.icns ]]; then cp AppIcon.icns "$APP/Contents/Resources/"; fi
 if [[ -n "${SPLINTER_VERSION:-}" ]]; then
   if [[ ! "$SPLINTER_VERSION" =~ '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' ]]; then

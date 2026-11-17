@@ -72,7 +72,8 @@ notarization require an Apple Developer account and a separate signing setup.
 Repository owners can apply the checked-in policy with
 `python3 scripts/configure-repository.py --repo Sanalarge/splinter` after the
 initial push. It requires repository administration access and does not add
-collaborators. Main requires a pull request and successful CI, with no bypass;
+collaborators. Main requires a pull request and successful CI and Swift security
+checks, with no bypass;
 the sole maintainer merges PRs without needing a second account to approve them.
 Release tags cannot be updated or deleted. External fork workflows require
 maintainer approval before running.

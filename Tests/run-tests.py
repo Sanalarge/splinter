@@ -17,9 +17,12 @@ def replace_once(source, old, new):
     return source.replace(old, new, 1)
 
 models = (ROOT / "Sources/Models.swift").read_text()
+assert models.count("ProcessInfo.processInfo.systemUptime") == 3
+models = models.replace("ProcessInfo.processInfo.systemUptime", "(TestIO.flashTime ?? ProcessInfo.processInfo.systemUptime)")
 models = replace_once(models, "static let shared = Store()", "static var shared = Store(preferences: TestPreferences(), migrateLegacy: false)")
 (OUT / "Models.swift").write_text(models)
 engine = (ROOT / "Sources/Engine.swift").read_text()
+engine = replace_once(engine, "let now = ProcessInfo.processInfo.systemUptime", "let now = TestIO.inputTime ?? ProcessInfo.processInfo.systemUptime")
 engine = replace_once(engine, "    func device(for event: CGEvent) -> DeviceInfo? {", "    func device(for event: CGEvent) -> DeviceInfo? {\n        if TestIO.overrideDevice { return TestIO.device }")
 engine = replace_once(engine, 'NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? ""', "TestIO.front")
 engine = replace_once(engine, ') { [weak self] _ in self?.cancelTilt() }', ') { [weak self] _ in if TestIO.nativeFront { self?.cancelTilt() } }')

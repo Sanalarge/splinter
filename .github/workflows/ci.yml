@@ -39,6 +39,7 @@ jobs:
       - name: Verify bundle and architectures
         run: |
           plutil -lint build/Splinter.app/Contents/Info.plist
+          test -s build/Splinter.app/Contents/Resources/LICENSE.txt
           ARCHS="$(lipo -archs build/Splinter.app/Contents/MacOS/Splinter)"
           [[ " $ARCHS " == *" arm64 "* && " $ARCHS " == *" x86_64 "* ]]
           codesign --verify --deep --strict build/Splinter.app
