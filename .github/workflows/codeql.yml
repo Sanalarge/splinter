@@ -12,6 +12,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: codeql-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   analyze:
     name: Analyze Swift
@@ -29,8 +33,12 @@ jobs:
         with:
           languages: swift
           build-mode: manual
-      - name: Build app for analysis
-        run: ./build.sh --adhoc
+      - name: Compile Swift for analysis
+        run: |
+          mkdir -p build
+          swiftc -parse-as-library -swift-version 5 -Onone -warnings-as-errors \
+            -module-cache-path "$RUNNER_TEMP/swift-module-cache" \
+            -target "$(uname -m)-apple-macos14.0" Sources/*.swift -o build/Splinter
       - uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066
         with:
           category: /language:swift

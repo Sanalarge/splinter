@@ -17,6 +17,8 @@ def replace_once(source, old, new):
     return source.replace(old, new, 1)
 
 models = (ROOT / "Sources/Models.swift").read_text()
+assert models.count("ProcessInfo.processInfo.systemUptime") == 3
+models = models.replace("ProcessInfo.processInfo.systemUptime", "(TestIO.flashTime ?? ProcessInfo.processInfo.systemUptime)")
 models = replace_once(models, "static let shared = Store()", "static var shared = Store(preferences: TestPreferences(), migrateLegacy: false)")
 (OUT / "Models.swift").write_text(models)
 engine = (ROOT / "Sources/Engine.swift").read_text()

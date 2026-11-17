@@ -33,6 +33,7 @@ final class TestPermissions {
 
 enum TestIO {
     static var inputTime: TimeInterval?
+    static var flashTime: TimeInterval?
     private static var frontFixture = "test.browser"
     static var nativeFront = false
     static var front: String {
@@ -102,6 +103,7 @@ func keyDowns() -> [Int64] {
     static func reset() {
         pump(0.06)
         TestIO.inputTime = nil
+        TestIO.flashTime = nil
         Store.shared = Store(preferences: TestPreferences(), migrateLegacy: false)
         store.config = Config()
         store.config.tiltGap = 0.08
@@ -465,12 +467,18 @@ func keyDowns() -> [Int64] {
             try expect(store.log.isEmpty, "Queued entry appeared after Clear")
         }
         test("Repeated flashes clear after last event") { _ in
+            TestIO.flashTime = 0
+            defer { TestIO.flashTime = nil }
             store.flash("wheel")
             pump(0.02)
+            TestIO.flashTime = 0.3
             store.flash("wheel")
-            pump(0.32)
+            pump(0.02)
+            TestIO.flashTime = 0.4
+            pump(0.4)
             try expect(store.active.contains("wheel"), "Flash ended before last event deadline")
-            pump(0.06)
+            TestIO.flashTime = 0.7
+            pump(0.3)
             try expect(!store.active.contains("wheel"), "Flash stuck")
         }
         test("Decoded settings reject values that crash scroll scaling") { _ in
